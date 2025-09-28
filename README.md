@@ -1,38 +1,79 @@
-# 2048
-A small clone of [1024](https://play.google.com/store/apps/details?id=com.veewo.a1024), based on [Saming's 2048](http://saming.fr/p/2048/) (also a clone). 2048 was indirectly inspired by [Threes](https://asherv.com/threes/).
+2048 Game Deployment
 
-Made just for fun. [Play it here!](http://gabrielecirulli.github.io/2048/)
+1. Project Overview
+   This repository hosts the 2048 game, a popular puzzle game originally created by Gabriele Cirulli, adapted here as part of a DevOps project. The goal was to containerize the game using Docker and deploy it via a CI/CD pipeline using GitHub Actions, with Render as the hosting platform. This project demonstrates containerization, automation, and deployment practices tailored to a static web application.
 
-The official app can also be found on the [Play Store](https://play.google.com/store/apps/details?id=com.gabrielecirulli.app2048) and [App Store!](https://itunes.apple.com/us/app/2048-by-gabriele-cirulli/id868076805)
+Source Inspiration: Based on Gabriele Cirulli’s 2048 and indirectly inspired by Threes.
+Objective: Build, test, and deploy the game efficiently while documenting the process.
 
-### Contributions
+2. Development and Local Testing
+   The 2048 game was containerized using a Dockerfile based on nginx:1.25-alpine to serve the static files.
 
-[Anna Harren](https://github.com/iirelu/) and [sigod](https://github.com/sigod) are maintainers for this repository.
+Local Setup:
 
-Other notable contributors:
+The game is accessible locally at http://localhost:8081 after running the container with:
+bashdocker run -d -p 8081:80 chrislarbi/the-2048-game-cicd
 
- - [TimPetricola](https://github.com/TimPetricola) added best score storage
- - [chrisprice](https://github.com/chrisprice) added custom code for swipe handling on mobile
- - [marcingajda](https://github.com/marcingajda) made swipes work on Windows Phone
- - [mgarciaisaia](https://github.com/mgarciaisaia) added support for Android 2.3
+This step confirmed the game’s functionality (tiles and swipes) before deployment.
 
-Many thanks to [rayhaanj](https://github.com/rayhaanj), [Mechazawa](https://github.com/Mechazawa), [grant](https://github.com/grant), [remram44](https://github.com/remram44) and [ghoullier](https://github.com/ghoullier) for the many other good contributions.
+3. CI/CD Pipeline Implementation
+   A CI/CD pipeline was set up using GitHub Actions to automate testing, building, and deployment simulation.
 
-### Screenshot
+Workflow: Defined in .github/workflows/deploy.yml.
+Steps:
 
-<p align="center">
-  <img src="https://cloud.githubusercontent.com/assets/1175750/8614312/280e5dc2-26f1-11e5-9f1f-5891c3ca8b26.png" alt="Screenshot"/>
-</p>
+Run Basic Tests: Checks for the presence of index.html, js/, and style/ directories to ensure all game assets are included.
 
-That screenshot is fake, by the way. I never reached 2048 :smile:
+Example: if [ ! -f index.html ]; then echo "Error: index.html is missing" && exit 1; fi
 
-## Contributing
-Changes and improvements are more than welcome! Feel free to fork and open a pull request. Please make your changes in a specific branch and request to pull into `master`! If you can, please make sure the game fully works before sending the PR, as that will help speed up the process.
+Build Docker Image: Creates the image chrislarbi/the-2048-game-cicd:latest using docker build.
+Simulate Staging Deployment: Sets a STAGING_URL (e.g., https://the-2048-game-cicd-staging.onrender.com) to mimic a staging environment, limited by Render’s free tier.
 
-You can find the same information in the [contributing guide.](https://github.com/gabrielecirulli/2048/blob/master/CONTRIBUTING.md)
+Trigger: Activates on pushes to the master branch.
+Troubleshooting: The Actions trigger was fixed by aligning it with the master branch and correcting syntax errors.
 
-## License
-2048 is licensed under the [MIT license.](https://github.com/gabrielecirulli/2048/blob/master/LICENSE.txt)
+4. Deployment to Render
+   The game was deployed to Render, a platform-as-a-service provider, using a Docker-based workflow.
 
-## Donations
-I made this in my spare time, and it's hosted on GitHub (which means I don't have any hosting costs), but if you enjoyed the game and feel like buying me coffee, you can donate at my BTC address: `1Ec6onfsQmoP9kkL3zkpB6c5sA4PVcXU2i`. Thank you very much!
+Deployment Steps:
+
+Signed up at render.com and linked the GitHub account.
+Created a new Web Service, selecting this repository and Docker environment.
+Left the Start Command blank to build from the Dockerfile.
+Deployed the service and noted the live URL.
+
+Live URL: https://the-2048-game-cicd.onrender.com
+Troubleshooting Render Deployment:
+
+Initial deployment showed only the header, with no interactive tiles, likely due to file copy or permission issues.
+Resolved by adding RUN chmod -R 755 /usr/share/nginx/html to the Dockerfile, ensuring read permissions for static files.
+Manual deployments were used to sync the latest commits after branch alignment.
+
+5. Security Measures
+   Security was a key focus to protect the application and its deployment process. Below are the implemented measures:
+
+Dependency Management: Pinned the base image to nginx:1.25-alpine to avoid risks from floating tags like latest, ensuring a stable and secure foundation.
+Vulnerability Scanning: Integrated Trivy into the CI/CD pipeline to scan the Docker image, configured to fail on high or critical vulnerabilities.
+File Integrity: Added a .dockerignore file to exclude .git, .gitignore, \*.md, and node_modules, reducing the risk of including unnecessary or malicious files. The chmod -R 755 command secures file permissions.
+Secret Management: No GitHub secrets were used, as Render’s build-from-Dockerfile approach (Option B) eliminated the need for Docker Hub authentication. In a production setting, secrets would be stored in GitHub for secure registry access.
+Pipeline Checks: Pre-build checks verify the presence of index.html, js/, and style/ to prevent incomplete builds.
+Deployment Security: Render provides HTTPS and DDoS protection by default, enhancing the application’s resilience.
+
+6. Documented Security Vulnerability
+   During development, a vulnerability was intentionally introduced to demonstrate security awareness and remediation.
+
+Issue: Initially used FROM nginx:latest in the Dockerfile, which posed a supply chain risk. This floating tag could pull an image with unpatched Common Vulnerabilities and Exposures (CVEs), such as older Nginx versions susceptible to exploits.
+Fix: Switched to FROM nginx:1.25-alpine for a pinned, audited version. Added Trivy scanning in the CI/CD pipeline to detect future issues. This change was implemented in the latest commit.
+
+7. Additional Notes and Contributions
+
+Notes:
+
+GitHub secrets were omitted due to the Render build strategy, simplifying the pipeline. For production, I’d add secrets for a registry like Docker Hub.
+The project builds on Gabriele Cirulli’s original 2048, with contributions from maintainers like Anna Harren and sigod, and features like mobile swipe support from Tim Petricola.
+
+Contributions: Open to pull requests—please branch off master and ensure the game works before submitting.
+License: MIT license, as per the original project.
+
+8. Acknowledgments
+   Thanks to Gabriele Cirulli for the original 2048 concept, and to contributors like Tim Petricola (best score storage) and Marcin Gajda (Windows Phone swipes).
